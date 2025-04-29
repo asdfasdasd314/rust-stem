@@ -60,9 +60,7 @@ impl Game {
         while !self.raylib_handle.window_should_close() {
             // Calculate delta time
             let delta_time = self.raylib_handle.get_frame_time();
-            // When it comes to the game loop there are a few parts: process inputs, create outputs, render
 
-            // Do things about fullscreen and exiting
             if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_ENTER) {
                 self.raylib_handle.toggle_fullscreen();
             }
@@ -77,15 +75,6 @@ impl Game {
             }
             if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_ZERO) {
                 self.in_debug_mode = !self.in_debug_mode;
-                if self.in_debug_mode {
-                    println!("Switching to debug mode");
-                }
-                else {
-                    println!("Exiting debug mode");
-                }
-            }
-            if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_T) {
-                self.player.move_by(Vector3f64::new(0.0, 10.0, 0.0));
             }
 
             // Do user input and movement
@@ -94,11 +83,7 @@ impl Game {
             let collisions: Vec<(CollisionObject, Vector3f64)> =
                 self.find_colliding_objects();
             if !collisions.is_empty() {
-                self.simulate_collisions(collisions);
-                println!("Colliding");
-            }
-            else {
-                println!("Not colliding");
+                self.run_collisions(collisions);
             }
 
             // Begin rendering
@@ -127,9 +112,6 @@ impl Game {
             }
 
             draw_handle.draw_fps(10, 10);
-
-            let player_center = self.player.dynamic_body.get_center();
-            draw_handle.draw_text(&format!("{} {} {}", player_center.x, player_center.y, player_center.z), 10, 40, 20, Color::BLACK);
         }
     }
 
@@ -143,14 +125,17 @@ impl Game {
     Third entry is the mtv which is applied to the first object to fix intersections between objects
      */
     fn find_colliding_objects(&self) -> Vec<(CollisionObject, Vector3f64)> {
-        fn calculate_mtv(dyn_obj: &DynamicBody, other_obj: &dyn Physical) -> Option<Vector3f64> {
-            let dyn_obj_radius = f64_round(dyn_obj.get_bounding_circle_radius());
-            let other_obj_radius = f64_round(other_obj.get_bounding_circle_radius());
-            let distance_between_centers = f64_round((dyn_obj.get_center() - other_obj.get_center()).length());
-            if dyn_obj_radius + other_obj_radius < distance_between_centers {
+        /// mtv = minimum translation vector
+        /// 
+        /// A collision can only occur if something is moving, so only the first one must be dynamic, the other can be anything physical
+        fn calculate_mtv(obj1: &DynamicBody, obj2: &dyn Physical) -> Option<Vector3f64> {
+            let radius1= f64_round(obj1.get_bounding_circle_radius());
+            let radius2 = f64_round(obj2.get_bounding_circle_radius());
+            let distance = f64_round((obj1.get_center() - obj2.get_center()).length());
+            if radius1 + radius2 < distance {
                 return None;
             }
-            dyn_obj.collides_with(other_obj)
+            obj1.collides_with(obj2)
         }
 
         // Check player collisions
@@ -175,7 +160,7 @@ impl Game {
         collisions
     }
 
-    fn simulate_collisions(
+    fn run_collisions(
         &mut self,
         collisions: Vec<(CollisionObject, Vector3f64)>,
     ) {

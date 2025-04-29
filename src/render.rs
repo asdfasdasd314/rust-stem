@@ -78,8 +78,8 @@ pub fn collision_detection_2d(obj1: Box<dyn SATAble2D>, obj2: Box<dyn SATAble2D>
     
     let mut res: (f64, Vector3f64) = (f64::MAX, Vector3f64::new(0.0, 0.0, 0.0,));
     for axis in projection_axes {
-        let line_segment1: LineSegment3D = axis.project_satable_object(&obj1);
-        let line_segment2: LineSegment3D = axis.project_satable_object(&obj2);
+        let line_segment1: LineSegment3D = axis.project_satable_object(obj1.as_ref());
+        let line_segment2: LineSegment3D = axis.project_satable_object(obj2.as_ref());
 
         let rounded_segment1 = LineSegment3D::new(vector3_round(line_segment1.point1), vector3_round(line_segment1.point2));
         let rounded_segment2 = LineSegment3D::new(vector3_round(line_segment2.point1), vector3_round(line_segment2.point2));
@@ -143,17 +143,6 @@ impl Polygon {
     }
 
     /**
-    Calculates a single possible orthogonal plane that can be used for the separating axis theorem (this is much more optimal, but I'm not quite sure if it's actually correct for anything other than cubes)
-     */
-    pub fn calculate_orthogonal_plane(&self) -> Plane {
-        let polygon_as_plane = self.convert_to_plane();
-        let edges = self.get_edges();
-        let edge_vec = edges[0].point2 - edges[0].point1;
-        let new_normal = polygon_as_plane.n.cross(edge_vec).normalized();
-        Plane::from_point_and_normal(edges[0].point1, new_normal)
-    }
-
-    /**
     Calculates any of the orthogonal planes necessary for the separating axis theorem
     Some of these planes could be the same as ones already checked, so this isn't quite optimal
      */
@@ -190,70 +179,7 @@ impl Polygon {
 
         Plane::from_point_and_normal(*p0, cross)
     }
-
-    // While it isn't precise for extremely fast objects, this basically computes the closest way we could move the object to remove the overlap, and considering this is written in Rust I think this is okay
-    /**
-    Returns `None` if the shapes don't overlap
-    Otherwise returns the minimum overlap between shapes and the axis on which that minimum overlap was found
-    */
-    fn separating_axis_theorem(
-        &self,
-        other_obj: &Polygon,
-    ) -> Option<(f64, Vector3f64)> {
-        let plane = self.convert_to_plane();
-        let mut overlap = f64::MAX;
-        let mut axis: Option<Vector3f64> = None;
-        for i in 0..self.points.len() {
-            let line_segment = &self.get_edges()[i];
-            let u = line_segment.point2 - line_segment.point1;
-            if u == Vector3f64::new(0.0, 0.0, 0.0,) {
-                continue;
-            }
-            let normal = u.cross(plane.n);
-            let projection_line = Line3D::from_point_and_parallel_vec(line_segment.point1, normal);
-            let line_segment1 = projection_line.project_polygon(self);
-            let line_segment2 = projection_line.project_polygon(other_obj);
-
-            let rounded_segment1 = LineSegment3D::new(vector3_round(line_segment1.point1), vector3_round(line_segment1.point2));
-            let rounded_segment2 = LineSegment3D::new(vector3_round(line_segment2.point1), vector3_round(line_segment2.point2));
-            let o = rounded_segment1.calculate_overlap(&rounded_segment2);
-            match o {
-                Some(o) => {
-                    if axis.is_none() || o < overlap {
-                        overlap = o;
-                        axis = Some(projection_line.v);
-                    }
-                }
-                None => return None,
-            }
-        }
-
-        Some((overlap, axis.unwrap()))
-    }
-
-    pub fn collides_with(&self, other: &Polygon) -> Option<(f64, Vector3f64)> {
-        let mut min_axis: (f64, Vector3f64);
-
-        let sat1 = self.separating_axis_theorem(other);
-        match &sat1 {
-            Some(axis) => min_axis = *axis,
-            None => return None,
-        }
-
-        let sat2 = other.separating_axis_theorem(self);
-        match sat2 {
-            Some(axis) => {
-                if axis.0 < min_axis.0 {
-                    min_axis = axis;
-                }
-            }
-            None => return None,
-        }
-
-        Some(min_axis)
-    }
 }
-
 pub trait MeshShape: Debug {
     fn move_by(&mut self, change: Vector3f64);
     fn get_vertices(&self) -> Vec<Vector3f64>;

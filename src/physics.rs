@@ -94,18 +94,18 @@ impl DynamicBody {
         // We need to find the angle when we look at there is a minimum overlap
         fn align_direction_vec(
             direction_vec: &mut Vector3f64,
-            dynamic_body_mesh: Ref<dyn MeshShape>,
-            other_mesh: Ref<dyn MeshShape>,
+            mesh1: Ref<dyn MeshShape>,
+            mesh2: Ref<dyn MeshShape>,
         ) {
             // The direction vector is going to either be correct, or flipped, so walk in each direction, and the one that gets further from the other mesh's center is the right direction
-            let dynamic_body_center = dynamic_body_mesh.get_center();
-            let other_body_center = other_mesh.get_center();
+            let center1 = mesh1.get_center();
+            let center2 = mesh2.get_center();
 
-            let center1 = dynamic_body_center + *direction_vec;
-            let center2 = dynamic_body_center - *direction_vec;
+            let center1 = center1 + *direction_vec;
+            let center2 = center2 - *direction_vec;
 
-            // If adding the direction vector walks in the wrong direction
-            if (other_body_center - center1).length() < (other_body_center - center2).length() {
+            // If adding the direction vector walks in the wrong direction fix it
+            if (center2 - center1).length() < (center2 - center1).length() {
                 *direction_vec *= -1.0;
             }
         }
@@ -133,19 +133,13 @@ impl DynamicBody {
                         direction = collision.1;
                     }
                 }
-                None=> {
-                    return None;
+                None => {
+                    return None; // If we are colliding, no matter where we are looking they should be colliding
                 }
             }
         }
 
         align_direction_vec(&mut direction, self.get_mesh(), other.get_mesh());
-
-        
-        // Here's all I'm going to say...
-        // I have been debugging this floating point precision error for a week
-        // This works 93% of the time, so I'm just going to run with it
-        // 0.12
         Some(direction * min_overlap)
     }
 }
