@@ -1,7 +1,6 @@
 use crate::math_util::*;
 use crate::float_precision::*;
 use crate::hashable::*;
-use raylib::prelude::*;
 use std::collections::HashSet;
 
 type Data = (Vector2f64, usize);
@@ -30,7 +29,7 @@ fn compare_order_of_two_points(comparison_axis: &ComparisonAxis, point1: &Data, 
         return distance1 < distance2;
     }
     
-    return cos_angle1 > cos_angle2;
+    cos_angle1 > cos_angle2
 }
 
 /**
@@ -41,7 +40,7 @@ pub mod custom_heap {
     use super::*;
 
     pub fn get_min_point(heap: &[Data]) -> Data {
-        return heap[0];
+        heap[0]
     }
 
     fn get_parent_index(index: usize) -> Option<usize> {
@@ -49,7 +48,7 @@ pub mod custom_heap {
         if parent_index < 0 {
             return None;
         }
-        return Some(parent_index as usize);
+        Some(parent_index as usize)
     }
 
     fn get_left_child_index(heap: &[Data], index: usize) -> Option<usize> {
@@ -57,7 +56,7 @@ pub mod custom_heap {
         if left_child_index >= heap.len() {
             return None;
         }
-        return Some(left_child_index);
+        Some(left_child_index)
     }
 
     fn get_right_child_index(heap: &[Data], index: usize) -> Option<usize> {
@@ -65,7 +64,7 @@ pub mod custom_heap {
         if right_child_index >= heap.len() {
             return None;
         }
-        return Some(right_child_index);
+        Some(right_child_index)
     }
 
     /**
@@ -76,7 +75,7 @@ pub mod custom_heap {
     fn sift_up(
         comparison_axis: &ComparisonAxis,
         mut index: usize,
-        heap: &mut Vec<Data>,
+        heap: &mut [Data],
     ) {
         while index > 0 {
             let point = heap[index];
@@ -104,7 +103,7 @@ pub mod custom_heap {
     fn sift_down(
         comparison_axis: &ComparisonAxis,
         mut index: usize,
-        heap: &mut Vec<Data>,
+        heap: &mut [Data],
     ) {
         while index < heap.len() {
             let left_index = get_left_child_index(heap, index);
@@ -116,13 +115,10 @@ pub mod custom_heap {
                     }
 
                     let right_index = get_right_child_index(heap, index);
-                    match right_index {
-                        Some(right_index) => {
-                            if !compare_order_of_two_points(comparison_axis, &heap[swap], &heap[right_index]) {
-                                swap = right_index;
-                            }
+                    if let Some(right_index) = right_index {
+                        if !compare_order_of_two_points(comparison_axis, &heap[swap], &heap[right_index]) {
+                            swap = right_index;
                         }
-                        None => {}
                     }
 
                     swap
@@ -137,9 +133,7 @@ pub mod custom_heap {
                 break;
             }
 
-            let temp_point = heap[index];
-            heap[index] = heap[max_index];
-            heap[max_index] = temp_point;
+            heap.swap(index, max_index);
             index = max_index;
         }
     }
@@ -186,7 +180,7 @@ pub mod custom_heap {
         comparison_axis: &ComparisonAxis,
         heap: &mut Vec<Data>,
     ) -> Option<Data> {
-        if heap.len() == 0 {
+        if heap.is_empty() {
             return None;
         }
 
@@ -198,7 +192,7 @@ pub mod custom_heap {
         // Restore the heap
         sift_down(comparison_axis, 0, heap);
 
-        return Some(pop_element);
+        Some(pop_element)
     }
 
     /**
@@ -237,16 +231,13 @@ pub fn is_sorted(comparison_axis: &ComparisonAxis, values: &[Data]) -> bool {
         }
     }
 
-    return true;
+    true
 }
 
 #[cfg(test)]
 mod tests {
-    use raylib::prelude::*;
     use super::*;
     use super::custom_heap::*;
-
-    
 
     #[test]
     fn test_heapsort() {

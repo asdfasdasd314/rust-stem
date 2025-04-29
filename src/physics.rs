@@ -1,14 +1,16 @@
 use crate::hashable::*;
-use crate::math_util::{Line3D, Plane};
+use crate::math_util::Plane;
 use crate::render::*;
 use crate::float_precision::*;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::cell::{RefCell, Ref};
+use std::rc::Rc;
 
 pub trait Physical: Debug {
     fn get_center(&self) -> Vector3f64;
     fn get_bounding_circle_radius(&self) -> f64;
-    fn get_mesh(&self) -> &Box<dyn MeshShape>;
+    fn get_mesh(&self) -> Ref<dyn MeshShape>;
 }
 
 pub trait Dynamic {
@@ -20,28 +22,28 @@ pub trait Static {}
 
 #[derive(Debug)]
 pub struct StaticBody {
-    pub absolute_position: Vector3f64,
-    pub mesh: Box<dyn MeshShape>,
+    pub pos: Vector3f64,
+    pub mesh: Rc<RefCell<dyn MeshShape>>,
 }
 
 impl Static for StaticBody {}
 
 impl Physical for StaticBody {
-    fn get_mesh(&self) -> &Box<dyn MeshShape> {
-        return &self.mesh;
+    fn get_mesh(&self) -> Ref<dyn MeshShape> {
+        return self.mesh.borrow();
     }
     fn get_bounding_circle_radius(&self) -> f64 {
-        return self.mesh.get_bounding_circle_radius();
+        return self.mesh.borrow().get_bounding_circle_radius();
     }
     fn get_center(&self) -> Vector3f64 {
-        return self.mesh.get_center();
+        return self.mesh.borrow().get_center();
     }
 }
 
 impl StaticBody {
-    pub fn new(absolute_position: Vector3f64, mesh: Box<dyn MeshShape>) -> Self {
+    pub fn new(pos: Vector3f64, mesh: Rc<RefCell<dyn MeshShape>>) -> Self {
         Self {
-            absolute_position,
+            pos,
             mesh,
         }
     }
@@ -50,37 +52,35 @@ impl StaticBody {
 // This object is a basic object that interacts with physics
 #[derive(Debug)]
 pub struct DynamicBody {
-    pub absolute_position: Vector3f64,
-    pub velocity: Vector3f64,
-    pub mesh: Box<dyn MeshShape>,
+    pub pos: Vector3f64,
+    pub mesh: Rc<RefCell<dyn MeshShape>>,
 }
 
 impl Dynamic for DynamicBody {
     fn move_by(&mut self, change: Vector3f64) {
-        self.absolute_position += change;
-        self.mesh.move_by(change);
+        self.pos += change;
+        self.mesh.borrow_mut().move_by(change);
     }
 }
 
 impl Physical for DynamicBody {
     fn get_center(&self) -> Vector3f64 {
-        return self.mesh.get_center();
+        return self.mesh.borrow().get_center();
     }
 
     fn get_bounding_circle_radius(&self) -> f64 {
-        return self.mesh.get_bounding_circle_radius();
+        return self.mesh.borrow().get_bounding_circle_radius();
     }
 
-    fn get_mesh(&self) -> &Box<dyn MeshShape> {
-        return &self.mesh;
+    fn get_mesh(&self) -> Ref<dyn MeshShape> {
+        return self.mesh.borrow();
     }
 }
 
 impl DynamicBody {
-    pub fn new(absolute_position: Vector3f64, mesh: Box<dyn MeshShape>) -> Self {
+    pub fn new(pos: Vector3f64, mesh: Rc<RefCell<dyn MeshShape>>) -> Self {
         DynamicBody {
-            absolute_position,
-            velocity: Vector3f64::new(0.0, 0.0, 0.0),
+            pos,
             mesh,
         }
     }
@@ -90,12 +90,12 @@ impl DynamicBody {
     If the objects aren't colliding, then returns `None`
     The MTV should be applied to the dynamic body (root body) of the collision because it's designed to move it out of the other body
      */
-    pub fn collides_with(&self, other: Box<&dyn Physical>) -> Option<Vector3f64> {
+    pub fn collides_with(&self, other: &dyn Physical) -> Option<Vector3f64> {
         // We need to find the angle when we look at there is a minimum overlap
         fn align_direction_vec(
             direction_vec: &mut Vector3f64,
-            dynamic_body_mesh: &Box<dyn MeshShape>,
-            other_mesh: &Box<dyn MeshShape>,
+            dynamic_body_mesh: Ref<dyn MeshShape>,
+            other_mesh: Ref<dyn MeshShape>,
         ) {
             // The direction vector is going to either be correct, or flipped, so walk in each direction, and the one that gets further from the other mesh's center is the right direction
             let dynamic_body_center = dynamic_body_mesh.get_center();
@@ -146,6 +146,6 @@ impl DynamicBody {
         // I have been debugging this floating point precision error for a week
         // This works 93% of the time, so I'm just going to run with it
         // 0.12
-        return Some(direction * min_overlap);
+        Some(direction * min_overlap)
     }
 }

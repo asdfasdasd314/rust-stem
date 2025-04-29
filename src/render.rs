@@ -1,5 +1,4 @@
 use crate::math_util::*;
-use crate::debug::*;
 use crate::float_precision::*;
 use raylib::prelude::*;
 use std::fmt::Debug;
@@ -52,17 +51,17 @@ impl LineSegment3D {
         if t1 < 0.0 && t2 < 0.0 || t1 > 1.0 && t2 > 1.0 {
             return None;
         }
-        if t1 < 0.0 || t1 > 1.0 {
-            return Some(f64_min(&[1.0 - t2, t2]) * base_line.v.length());
+        if !(0.0..=1.0).contains(&t1) {
+            Some(f64_min(&[1.0 - t2, t2]) * base_line.v.length())
         }
-        else if t2 < 0.0 || t2 > 1.0 {
-            return Some(f64_min(&[1.0 - t1, t1]) * base_line.v.length());
+        else if !(0.0..=1.0).contains(&t2) {
+            Some(f64_min(&[1.0 - t1, t1]) * base_line.v.length())
         }
         else if t1 < t2 {
-            return Some(f64_min(&[t2, 1.0 - t1]) * base_line.v.length());
+            Some(f64_min(&[t2, 1.0 - t1]) * base_line.v.length())
         }
         else {
-            return Some(f64_min(&[t1, 1.0 - t2]) * base_line.v.length());
+            Some(f64_min(&[t1, 1.0 - t2]) * base_line.v.length())
         }
     }
 }
@@ -84,13 +83,13 @@ pub fn collision_detection_2d(obj1: Box<dyn SATAble2D>, obj2: Box<dyn SATAble2D>
 
         let rounded_segment1 = LineSegment3D::new(vector3_round(line_segment1.point1), vector3_round(line_segment1.point2));
         let rounded_segment2 = LineSegment3D::new(vector3_round(line_segment2.point1), vector3_round(line_segment2.point2));
-        let overlap: Option<f64>;
+        let overlap: Option<f64> =
         if rounded_segment1.length() > rounded_segment2.length() {
-            overlap = rounded_segment1.calculate_overlap(&rounded_segment2);
+            rounded_segment1.calculate_overlap(&rounded_segment2)
         }
         else {
-            overlap = rounded_segment2.calculate_overlap(&rounded_segment1);
-        }
+            rounded_segment2.calculate_overlap(&rounded_segment1)
+        };
         match overlap {
             Some(overlap) => {
                 if overlap < res.0 {
@@ -104,7 +103,7 @@ pub fn collision_detection_2d(obj1: Box<dyn SATAble2D>, obj2: Box<dyn SATAble2D>
         }
     }
 
-    return Some(res);
+    Some(res)
 }
 
 // This is only really a useful abstraction for rendering or calculating collisions #[derive(Debug)]
@@ -151,7 +150,7 @@ impl Polygon {
         let edges = self.get_edges();
         let edge_vec = edges[0].point2 - edges[0].point1;
         let new_normal = polygon_as_plane.n.cross(edge_vec).normalized();
-        return Plane::from_point_and_normal(edges[0].point1, new_normal);
+        Plane::from_point_and_normal(edges[0].point1, new_normal)
     }
 
     /**
@@ -166,7 +165,7 @@ impl Polygon {
             let new_normal = polygon_as_plane.n.cross(edge_vec);
             planes.push(Plane::from_point_and_normal(edge.point1, new_normal));
         }
-        return planes;
+        planes
     }
 
     pub fn convert_to_plane(&self) -> Plane {
@@ -220,11 +219,7 @@ impl Polygon {
             let o = rounded_segment1.calculate_overlap(&rounded_segment2);
             match o {
                 Some(o) => {
-                    if axis.is_none() {
-                        overlap = o;
-                        axis = Some(projection_line.v);
-                    }
-                    else if o < overlap {
+                    if axis.is_none() || o < overlap {
                         overlap = o;
                         axis = Some(projection_line.v);
                     }
@@ -233,7 +228,7 @@ impl Polygon {
             }
         }
 
-        return Some((overlap, axis.unwrap()));
+        Some((overlap, axis.unwrap()))
     }
 
     pub fn collides_with(&self, other: &Polygon) -> Option<(f64, Vector3f64)> {
@@ -241,7 +236,7 @@ impl Polygon {
 
         let sat1 = self.separating_axis_theorem(other);
         match &sat1 {
-            Some(axis) => min_axis = axis.clone(),
+            Some(axis) => min_axis = *axis,
             None => return None,
         }
 
@@ -255,7 +250,7 @@ impl Polygon {
             None => return None,
         }
 
-        return Some(min_axis);
+        Some(min_axis)
     }
 }
 
@@ -343,11 +338,11 @@ impl MeshShape for RectangularPrism {
     }
 
     fn get_center(&self) -> Vector3f64 {
-        return Vector3f64::new(
+        Vector3f64::new(
             self.root.x + self.width / 2.0,
             self.root.y + self.height / 2.0,
             self.root.z + self.length / 2.0,
-        );
+        )
     }
 
     fn get_bounding_circle_radius(&self) -> f64 {
@@ -358,7 +353,7 @@ impl MeshShape for RectangularPrism {
         let polygons = self.get_polygons();
 
         let mut color_index = 0;
-        let colors = vec![
+        let colors = [
             Color::RED,
         ];
         for polygon in &polygons {
@@ -389,6 +384,15 @@ impl MeshShape for RectangularPrism {
 
         if in_debug {
             draw_wireframe(draw_mode, polygons);
+        }
+    }
+}
+
+pub fn draw_wireframe(d: &mut RaylibMode3D<'_, RaylibDrawHandle<'_>>, polygons: Vec<Polygon>) {
+    for polygon in polygons {
+        let points = polygon.points;
+        for i in 0..points.len() {
+            d.draw_line_3D(Vector3::from(points[0]), Vector3::from(points[i]), Color::BLACK);
         }
     }
 }

@@ -1,4 +1,6 @@
-use crate::debug::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::float_precision::*;
 use crate::math_util::*;
 use crate::render::*;
@@ -35,15 +37,13 @@ impl GroundMesh {
         h3: f64,
         h4: f64,
     ) -> Self {
-        let colors = vec![
-            Color::GREEN,
+        let colors = [Color::GREEN,
             Color::BROWN,
             Color::BLACK,
             Color::ORANGE,
             Color::YELLOW,
             Color::PURPLE,
-            Color::BLUE,
-        ];
+            Color::BLUE];
 
         let mut rng = thread_rng();
 
@@ -68,7 +68,7 @@ impl MeshShape for GroundMesh {
     }
 
     fn get_vertices(&self) -> Vec<Vector3f64> {
-        return vec![
+        vec![
             Vector3f64::new(self.bottom_left_pos.x, self.h1, self.bottom_left_pos.y),
             Vector3f64::new(
                 self.bottom_left_pos.x + self.dx,
@@ -85,7 +85,7 @@ impl MeshShape for GroundMesh {
                 self.h4,
                 self.bottom_left_pos.y + self.dz,
             ),
-        ];
+        ]
     }
 
     fn get_polygons(&self) -> Vec<Polygon> {
@@ -99,11 +99,11 @@ impl MeshShape for GroundMesh {
 
     fn get_center(&self) -> Vector3f64 {
         let average_height = (self.h1 + self.h2 + self.h3 + self.h4) / 4.0;
-        return Vector3f64::new(
+        Vector3f64::new(
             self.bottom_left_pos.x + self.dx / 2.0,
             average_height,
             self.bottom_left_pos.y + self.dz / 2.0,
-        );
+        )
     }
 
     fn get_bounding_circle_radius(&self) -> f64 {
@@ -146,14 +146,14 @@ pub fn generate_height_map() -> Vec<Vec<f64>> {
 
     // Generate heightmap using Simplex Noise
     let mut heights = vec![vec![0.0; height]; width];
-    for x in 0..width {
-        for y in 0..height {
-            let noise_value = simplex.get([x as f64 / 20.0, y as f64 / 20.0]) * 10.0;
-            heights[x][y] = noise_value as f64;
+    for i in 0..width {
+        for j in 0..height {
+            let noise_value = simplex.get([i as f64 / 20.0, j as f64 / 20.0]) * 10.0;
+            heights[i][j] = noise_value;
         }
     }
 
-    return heights;
+    heights
 }
 
 /**
@@ -165,8 +165,8 @@ pub fn create_mesh_from_height_map(
     start_pos: Vector2f64,
     dx: f64,
     dz: f64,
-) -> Vec<Box<dyn MeshShape>> {
-    let mut all_meshes: Vec<Box<dyn MeshShape>> =
+) -> Vec<Rc<RefCell<dyn MeshShape>>> {
+    let mut all_meshes: Vec<Rc<RefCell<dyn MeshShape>>> =
         Vec::with_capacity((height_map.len() - 1) * (height_map[0].len() - 1));
     for i in 0..height_map.len() - 1 {
         for j in 0..height_map[0].len() - 1 {
@@ -179,8 +179,8 @@ pub fn create_mesh_from_height_map(
                 height_map[i + 1][j + 1],
                 height_map[i][j + 1],
             );
-            all_meshes.push(Box::new(ground_mesh) as Box<dyn MeshShape>);
+            all_meshes.push(Rc::new(RefCell::new(ground_mesh)));
         }
     }
-    return all_meshes;
+    all_meshes
 }

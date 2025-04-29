@@ -1,6 +1,7 @@
-use crate::float_precision::*;
+use std::cell::Ref;
 use crate::heap::custom_heap::*;
 use crate::render::*;
+use crate::float_precision::*;
 
 pub fn f64_min(nums: &[f64]) -> f64 {
     let mut min = nums[0];
@@ -9,7 +10,7 @@ pub fn f64_min(nums: &[f64]) -> f64 {
             min = *num
         }
     }
-    return min;
+    min
 }
 
 pub fn f64_max(nums: &[f64]) -> f64 {
@@ -19,7 +20,7 @@ pub fn f64_max(nums: &[f64]) -> f64 {
             max = *num
         }
     }
-    return max;
+    max
 }
 
 pub fn calculate_cos_of_angle(vec1: &Vector2f64, vec2: &Vector2f64) -> f64 {
@@ -27,7 +28,7 @@ pub fn calculate_cos_of_angle(vec1: &Vector2f64, vec2: &Vector2f64) -> f64 {
         return 1.0;
     }
 
-    return vec1.dot(*vec2) / (vec1.length() * vec2.length());
+    vec1.dot(*vec2) / (vec1.length() * vec2.length())
 }
 
 pub enum PlaneIntersection {
@@ -106,10 +107,10 @@ impl Plane {
         
         let proj = self.n * d_vec.dot(self.n) / (self.n.dot(self.n));
 
-        return *point - proj;
+        *point - proj
     }
 
-    pub fn project_mesh(&self, mesh: &Box<dyn MeshShape>) -> Box<dyn SATAble2D> {
+    pub fn project_mesh(&self, mesh: Ref<dyn MeshShape>) -> Box<dyn SATAble2D> {
         // Project each individual point onto the plane
         let projected_points: Vec<Vector3f64> = mesh
             .get_vertices()
@@ -140,9 +141,9 @@ impl Plane {
         assert!(bounding_points.len() > 1);
         let projected_points = point_projector.project_into_3d(&bounding_points, &projected_points);
         if projected_points.len() == 2 {
-            return Box::new(LineSegment3D::new(projected_points[0], projected_points[1]));
+            Box::new(LineSegment3D::new(projected_points[0], projected_points[1]))
         } else {
-            return Box::new(Polygon::new(projected_points));
+            Box::new(Polygon::new(projected_points))
         }
     }
 
@@ -157,7 +158,7 @@ impl Plane {
 
         // Check if the planes contain the same point
         // ax0 = d0 = ax1 = d1
-        return self.d / self.p0.x == other.d / other.p0.x;
+        self.d / self.p0.x == other.d / other.p0.x
     }
 
     /**
@@ -180,31 +181,31 @@ impl Plane {
         // We now have a system of equations that has a single solution instead of infinitely many
         // solutions (we just picked an arbitrary point)
 
-        let line1: Line2D;
-        let line2: Line2D;
+        let line1: Line2D = 
+            if self.n.x == 0.0 {
+                Line2D::from_two_points(
+                    Vector2f64::new(0.0, self.n.y),
+                    Vector2f64::new(1.0, self.n.y),
+                )
+            } else {
+                Line2D::from_two_points(
+                    Vector2f64::new(0.0, self.n.y),
+                    Vector2f64::new(self.n.x, 0.0),
+                )
+            };
 
-        if self.n.x == 0.0 {
-            line1 = Line2D::from_two_points(
-                Vector2f64::new(0.0, self.n.y),
-                Vector2f64::new(1.0, self.n.y),
-            );
-        } else {
-            line1 = Line2D::from_two_points(
-                Vector2f64::new(0.0, self.n.y),
-                Vector2f64::new(self.n.x, 0.0),
-            );
-        }
-        if other.n.x == 0.0 {
-            line2 = Line2D::from_two_points(
-                Vector2f64::new(0.0, other.n.y),
-                Vector2f64::new(1.0, other.n.y),
-            );
-        } else {
-            line2 = Line2D::from_two_points(
-                Vector2f64::new(0.0, other.n.y),
-                Vector2f64::new(other.n.x, 0.0),
-            );
-        }
+        let line2: Line2D = 
+            if other.n.x == 0.0 {
+                Line2D::from_two_points(
+                    Vector2f64::new(0.0, other.n.y),
+                    Vector2f64::new(1.0, other.n.y),
+                )
+            } else {
+                Line2D::from_two_points(
+                    Vector2f64::new(0.0, other.n.y),
+                    Vector2f64::new(other.n.x, 0.0),
+                )
+            };
 
         let line_intersection = line1.find_intersection(&line2);
 
@@ -213,10 +214,10 @@ impl Plane {
                 // This is the most basic case where we have an actual point
                 // Remember z0 = 0
                 let p0 = Vector3f64::new(point.x, point.y, 0.0);
-                return PlaneIntersection::Line(Line3D::from_point_and_parallel_vec(p0, parallel));
+                PlaneIntersection::Line(Line3D::from_point_and_parallel_vec(p0, parallel))
             }
             LineIntersection::Infinite => {
-                return PlaneIntersection::Infinite;
+                PlaneIntersection::Infinite
             }
             LineIntersection::None => {
                 // We should have already panicked, there is no conceivable reason to end up here
@@ -262,9 +263,9 @@ impl Line3D {
 
         if (terminal_point - p1).length() > (terminal_point - p2).length() {
             // If we get closer when we subtract the vector, then we are going away, so t is negative
-            return abs_t * -1.0;
+            abs_t * -1.0
         } else {
-            return abs_t;
+            abs_t
         }
     }
 
@@ -336,7 +337,7 @@ impl Line3D {
     fn project_point_onto_line(&self, point: Vector3f64) -> Vector3f64 {
         let u = point - self.p0;
         // u_initial + projv(u) = projected point
-        return self.p0 + self.v * self.v.dot(u) / self.v.dot(self.v);
+        self.p0 + self.v * self.v.dot(u) / self.v.dot(self.v)
     }
 }
 
@@ -371,32 +372,32 @@ impl Line2D {
             }
         }
         let displacement_line = Line2D::from_two_points(self.p0, other.p0);
-        let t: f64;
-        // First check which projection to use
-        if displacement_line.v.dot(self.v) == 0.0 {
-            // If the lines are parallel project onto self.v
-            let proj_other_to_self = self.project_point(other.v);
-            t = proj_other_to_self.length() / self.v.length();
-        } else {
-            // It's theoretically possible we go past the point, so pick two points equidistant away and choose the direction that gets closer
-            let point1 = self.p0 + self.v;
-            let point2 = self.p0 - self.v;
+        let t: f64 = 
+            // First check which projection to use
+            if displacement_line.v.dot(self.v) == 0.0 {
+                // If the lines are parallel project onto self.v
+                let proj_other_to_self = self.project_point(other.v);
+                proj_other_to_self.length() / self.v.length()
+            } else {
+                // It's theoretically possible we go past the point, so pick two points equidistant away and choose the direction that gets closer
+                let point1 = self.p0 + self.v;
+                let point2 = self.p0 - self.v;
 
-            let proj_p1 = other.project_point(point1);
-            let proj_p2 = other.project_point(point2);
+                let proj_p1 = other.project_point(point1);
+                let proj_p2 = other.project_point(point2);
 
-            let p1_magnitude = (proj_p1 - point1).length();
-            let p2_magnitude = (proj_p2 - point2).length();
-            t = (p2_magnitude - p1_magnitude) / f64_min(&[p1_magnitude, p2_magnitude]);
-        }
+                let p1_magnitude = (proj_p1 - point1).length();
+                let p2_magnitude = (proj_p2 - point2).length();
+                (p2_magnitude - p1_magnitude) / f64_min(&[p1_magnitude, p2_magnitude])
+            };
 
-        return LineIntersection::Point(self.p0 + self.v * t);
+        LineIntersection::Point(self.p0 + self.v * t)
     }
 
     fn project_point(&self, point: Vector2f64) -> Vector2f64 {
         let u = point - self.p0;
         // u_initial + projv(u) = projected point
-        return self.p0 + self.v * self.v.dot(u) / self.v.dot(self.v);
+        self.p0 + self.v * self.v.dot(u) / self.v.dot(self.v)
     }
 }
 
@@ -413,13 +414,7 @@ impl ComparisonAxis {
         let mut min_x_index = 0;
         let mut min_y_index = 0;
         for i in 0..points.len() {
-            if points[i].0.y < points[min_y_index].0.y {
-                min_y_index = i;
-            }
-            // Otherwise compare the x
-            else if points[i].0.y == points[min_y_index].0.y
-                && points[i].0.x < points[min_y_index].0.x
-            {
+            if points[i].0.y < points[min_y_index].0.y || (points[i].0.y == points[min_y_index].0.y && points[i].0.x < points[min_y_index].0.x) {
                 min_y_index = i;
             }
 
@@ -490,7 +485,6 @@ pub enum BasePlane {
 }
 
 pub struct TwoDimensionalPointProjector {
-    original_plane: Plane,
     base_plane: BasePlane,
 }
 
@@ -515,7 +509,6 @@ impl TwoDimensionalPointProjector {
         }
 
         Self {
-            original_plane: plane,
             base_plane,
         }
     }
@@ -585,10 +578,10 @@ pub fn calculate_difference_in_angle(
         (compare_to_vec.y / (compare_to_vec.x.powi(2) + compare_to_vec.y.powi(2)).sqrt()).asin();
     let compare_to_vec_phi = compare_to_vec.z / compare_to_vec_magnitude;
 
-    return SphericalAngle {
+    SphericalAngle {
         theta: compare_to_vec_theta - base_vec_theta,
         phi: compare_to_vec_phi - base_vec_phi,
-    };
+    }
 }
 
 // This function checks that given some angles, they surround the relative origin they were calculated from
@@ -607,5 +600,5 @@ pub fn check_angles_surround_relative_origin(angles: Vec<SphericalAngle>) -> boo
         }
     }
 
-    return false;
+    false
 }

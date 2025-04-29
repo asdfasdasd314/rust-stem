@@ -36,13 +36,6 @@ pub fn vector3_round(v: Vector3f64) -> Vector3f64 {
     )
 }
 
-pub fn vector2_round(v: Vector2f64) -> Vector2f64 {
-    Vector2f64::new(
-        f64_round(v.x),
-        f64_round(v.y),
-    )
-}
-
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Vector2f64 {
     pub x: f64,
@@ -73,7 +66,7 @@ impl Vector2f64 {
     }
 
     pub fn normalized(&self) -> Vector2f64 {
-        self.clone() / self.length() 
+        *self / self.length() 
     }
 }
 
@@ -103,7 +96,7 @@ impl Vector3f64 {
     }
 
     pub fn normalized(&self) -> Vector3f64 {
-        self.clone() / self.length()
+        *self / self.length()
     }
 }
 
