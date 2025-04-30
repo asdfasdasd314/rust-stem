@@ -84,6 +84,10 @@ impl Game {
                 self.find_colliding_objects();
             if !collisions.is_empty() {
                 self.run_collisions(collisions);
+                println!("Colliding");
+            }
+            else {
+                println!("Not colliding");
             }
 
             // Begin rendering

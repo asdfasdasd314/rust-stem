@@ -232,7 +232,15 @@ pub fn graham_scan(sorted_points: &[(Vector2f64, usize)]) -> Vec<(Vector2f64, us
         stack.push(*point);
     }
 
-    // TODO: Potential for if points are colinear, but for now don't worry about it
+    // Check if the last point is colinear with the first two points
+    if stack.len() > 2 && !is_counter_clockwise(
+        stack[0].0,
+        stack[stack.len() - 2].0,
+        stack[stack.len() - 1].0
+    ) {
+        _ = stack.pop();
+    }
+
     stack
 }
 

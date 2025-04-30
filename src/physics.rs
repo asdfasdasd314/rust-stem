@@ -97,15 +97,11 @@ impl DynamicBody {
             mesh1: Ref<dyn MeshShape>,
             mesh2: Ref<dyn MeshShape>,
         ) {
-            // The direction vector is going to either be correct, or flipped, so walk in each direction, and the one that gets further from the other mesh's center is the right direction
-            let center1 = mesh1.get_center();
-            let center2 = mesh2.get_center();
+            // The direction vector is going to either be correct or flipped, so walk in each direction, and the one that gets further from the other mesh's center is the right direction
+            let pos1 = mesh2.get_center() + *direction_vec;
+            let pos2 = mesh2.get_center() - *direction_vec;
 
-            let center1 = center1 + *direction_vec;
-            let center2 = center2 - *direction_vec;
-
-            // If adding the direction vector walks in the wrong direction fix it
-            if (center2 - center1).length() < (center2 - center1).length() {
+            if (pos1 - mesh1.get_center()).length() > (pos2 - mesh1.get_center()).length() {
                 *direction_vec *= -1.0;
             }
         }
@@ -125,6 +121,8 @@ impl DynamicBody {
             let proj_plane = Plane::from(plane);
             let proj1 = proj_plane.project_mesh(self.get_mesh());
             let proj2 = proj_plane.project_mesh(other.get_mesh());
+
+            println!("Start {:#?} {:#?} {:#?} {:#?}", proj1, self.get_mesh(), proj2, other.get_mesh());
             let collision = collision_detection_2d(proj1, proj2, proj_plane.n);
             match collision {
                 Some(collision) => {
