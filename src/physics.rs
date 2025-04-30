@@ -122,7 +122,6 @@ impl DynamicBody {
             let proj1 = proj_plane.project_mesh(self.get_mesh());
             let proj2 = proj_plane.project_mesh(other.get_mesh());
 
-            println!("Start {:#?} {:#?} {:#?} {:#?}", proj1, self.get_mesh(), proj2, other.get_mesh());
             let collision = collision_detection_2d(proj1, proj2, proj_plane.n);
             match collision {
                 Some(collision) => {

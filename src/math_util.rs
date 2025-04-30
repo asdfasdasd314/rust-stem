@@ -1,4 +1,6 @@
 use std::cell::Ref;
+use std::collections::HashSet;
+use crate::hashable::HashableVector2;
 use crate::heap::custom_heap::*;
 use crate::render::*;
 use crate::float_precision::*;
@@ -90,10 +92,10 @@ impl Plane {
         // Get the axis for which all points will be compared to
         let comparison_axis = ComparisonAxis::new(&two_dimensional_points);
 
-        sort_points_clockwise(&mut two_dimensional_points, &comparison_axis);
+        let sorted_points = sort_points_clockwise(&mut two_dimensional_points, &comparison_axis);
 
         // Perform Graham's check to get the points of the polygon
-        let bounding_points = graham_scan(&two_dimensional_points);
+        let bounding_points = graham_scan(&sorted_points);
 
         assert!(bounding_points.len() > 1);
         let projected_points = point_projector.project_into_3d(&bounding_points, &projected_points);
@@ -191,12 +193,22 @@ fn find_root_point(points: &[(Vector2f64, usize)]) -> &(Vector2f64, usize) {
     &points[min_index]
 }
 
-pub fn sort_points_clockwise(points: &mut [(Vector2f64, usize)], comparison_axis: &ComparisonAxis) {
-    let mut sorting_points: Vec<(Vector2f64, usize)> = vec![(Vector2f64::new(0.0, 0.0), 0); points.len() - 1];
+pub fn sort_points_clockwise(points: &mut [(Vector2f64, usize)], comparison_axis: &ComparisonAxis) -> Vec<(Vector2f64, usize)> {
+    // First remove duplicate points
+    let mut unique_points: Vec<(Vector2f64, usize)> = Vec::new();
+    let mut seen = HashSet::new();
+    for point in points.iter() {
+        if seen.insert(HashableVector2::from(point.0)) {
+            unique_points.push(*point);
+        }
+    }
+
+    // Now sort the unique points
+    let mut sorting_points: Vec<(Vector2f64, usize)> = vec![(Vector2f64::new(0.0, 0.0), 0); unique_points.len() - 1];
 
     let mut new_i: usize = 0;
     let mut root_point_i: usize = 0;
-    for point in points.iter() {
+    for point in unique_points.iter() {
         if point.0 != comparison_axis.root_point {
             sorting_points[new_i] = *point;
             new_i += 1;
@@ -208,13 +220,16 @@ pub fn sort_points_clockwise(points: &mut [(Vector2f64, usize)], comparison_axis
     // Sort without the root point because that can mess things up
     heapsort(comparison_axis, &mut sorting_points);
 
-    // Put them back
-    points[0] = (comparison_axis.root_point, root_point_i);
-    points[1..(sorting_points.len() + 1)].copy_from_slice(&sorting_points[..]);
+    // Create a new array with the correct size
+    let mut new_points: Vec<(Vector2f64, usize)> = vec![(Vector2f64::new(0.0, 0.0), 0); sorting_points.len() + 1];
+    new_points[0] = (comparison_axis.root_point, root_point_i);
+    new_points[1..(sorting_points.len() + 1)].copy_from_slice(&sorting_points[..]);
+
+    new_points
 }
 
 fn is_counter_clockwise(p: Vector2f64, q: Vector2f64, r: Vector2f64) -> bool {
-    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x) > 0.0
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x) < 0.0
 }
 
 pub fn graham_scan(sorted_points: &[(Vector2f64, usize)]) -> Vec<(Vector2f64, usize)> {
