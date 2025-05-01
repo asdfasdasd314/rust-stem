@@ -1,6 +1,7 @@
 use crate::math_util::*;
 use crate::float_precision::*;
 use raylib::prelude::*;
+use std::cmp::min;
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -39,30 +40,39 @@ impl LineSegment3D {
 
     Requires the input be rounded
      */
-    pub fn calculate_overlap(
+    pub fn calculate_min_translation(
         &self,
         other: &LineSegment3D,
     ) -> Option<f64> {
         let base_line = Line3D::from_line_segment(self);
 
-        // I don't think this is right?
-        let t1 = base_line.find_t_from_point(other.point1);
-        let t2 = base_line.find_t_from_point(other.point2);
+        let mut t1 = base_line.find_t_from_point(other.point1);
+        let mut t2 = base_line.find_t_from_point(other.point2);
+
+        // Swap them if t1 is greater than t2
+        if t1 > t2 {
+            std::mem::swap(&mut t1, &mut t2);
+        }
+
         if t1 < 0.0 && t2 < 0.0 || t1 > 1.0 && t2 > 1.0 {
             return None;
         }
-        if !(0.0..=1.0).contains(&t1) {
-            Some(f64_min(&[1.0 - t2, t2]) * base_line.v.length())
+
+        let distance = 
+        if t1 > 0.0 && t1 < 1.0 && t2 > 0.0 && t2 < 1.0 {
+            t2.min(1.0 - t1)
         }
-        else if !(0.0..=1.0).contains(&t2) {
-            Some(f64_min(&[1.0 - t1, t1]) * base_line.v.length())
+        else if t1 < 0.0 {
+            t2
         }
-        else if t1 < t2 {
-            Some(f64_min(&[t2, 1.0 - t1]) * base_line.v.length())
+        else if t2 > 1.0 {
+            1.0 - t1
         }
         else {
-            Some(f64_min(&[t1, 1.0 - t2]) * base_line.v.length())
-        }
+            t2
+        };
+
+        Some(distance * base_line.v.length())
     }
 }
 
@@ -85,11 +95,13 @@ pub fn collision_detection_2d(obj1: Box<dyn SATAble2D>, obj2: Box<dyn SATAble2D>
         let rounded_segment2 = LineSegment3D::new(vector3_round(line_segment2.point1), vector3_round(line_segment2.point2));
         let overlap: Option<f64> =
         if rounded_segment1.length() > rounded_segment2.length() {
-            rounded_segment1.calculate_overlap(&rounded_segment2)
+            rounded_segment1.calculate_min_translation(&rounded_segment2)
         }
         else {
-            rounded_segment2.calculate_overlap(&rounded_segment1)
+            rounded_segment2.calculate_min_translation(&rounded_segment1)
         };
+
+        println!("overlap: {:?}", overlap);
         match overlap {
             Some(overlap) => {
                 if overlap < res.0 {
