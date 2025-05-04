@@ -126,7 +126,6 @@ impl DynamicBody {
             match collision {
                 Some(collision) => {
                     if collision.0 < min_overlap {
-                        println!("{:#?} {:#?} {:#?}", collision.0, proj_plane.project_mesh(self.get_mesh()), proj_plane.project_mesh(other.get_mesh()));
                         min_overlap = collision.0;
                         direction = collision.1;
                     }
