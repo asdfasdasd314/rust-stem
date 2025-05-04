@@ -1,7 +1,6 @@
 use crate::math_util::*;
 use crate::float_precision::*;
 use raylib::prelude::*;
-use std::cmp::min;
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -101,7 +100,6 @@ pub fn collision_detection_2d(obj1: Box<dyn SATAble2D>, obj2: Box<dyn SATAble2D>
             rounded_segment2.calculate_min_translation(&rounded_segment1)
         };
 
-        println!("overlap: {:?}", overlap);
         match overlap {
             Some(overlap) => {
                 if overlap < res.0 {
