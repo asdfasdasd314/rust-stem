@@ -1,4 +1,4 @@
-use crate::math_util::*;
+use crate::math::*;
 use crate::float_precision::*;
 use std::hash::{Hash, Hasher};
 use ordered_float::OrderedFloat;

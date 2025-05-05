@@ -4,6 +4,8 @@ use crate::hashable::HashableVector2;
 use crate::heap::custom_heap::*;
 use crate::render::*;
 use crate::float_precision::*;
+use crate::shapes::Circle;
+use crate::shapes::{LineSegment3D, Polygon};
 
 pub fn f64_min(nums: &[f64]) -> f64 {
     let mut min = nums[0];
@@ -70,15 +72,32 @@ impl Plane {
         *point - proj
     }
 
-    pub fn project_mesh(&self, mesh: Ref<dyn MeshShape>) -> Box<dyn SATAble2D> {
+    pub fn project_mesh(&self, mesh: MeshShape) -> SATAble2D {
         // Project each individual point onto the plane
-        let projected_points: Vec<Vector3f64> = mesh
-            .get_vertices()
-            .iter()
-            .map(|point| {
-                self.project_point(point)
-            })
-            .collect();
+        let projected_points: Vec<Vector3f64>;
+        match mesh {
+            MeshShape::RectangularPrism(prism) => {
+                projected_points = prism
+                    .get_vertices()
+                    .iter()
+                    .map(|point| {
+                        self.project_point(point)
+                    })
+                    .collect();
+            },
+            MeshShape::GroundMesh(ground_mesh) => {
+                projected_points = ground_mesh
+                    .get_vertices()
+                    .iter()
+                    .map(|point| {
+                        self.project_point(point)
+                    })
+                    .collect();
+            },
+            MeshShape::Sphere(sphere) => {
+                return SATAble2D::Circle(Circle::new(sphere.center, sphere.radius, self.n));
+            },
+        };
 
         // Convert the points to 2D
         let point_projector = TwoDimensionalPointProjector::new(self.clone());
@@ -100,9 +119,10 @@ impl Plane {
         assert!(bounding_points.len() > 1);
         let projected_points = point_projector.project_into_3d(&bounding_points, &projected_points);
         if projected_points.len() == 2 {
-            Box::new(LineSegment3D::new(projected_points[0], projected_points[1]))
-        } else {
-            Box::new(Polygon::new(projected_points))
+            SATAble2D::LineSegment3D(LineSegment3D::new(projected_points[0], projected_points[1]))
+        }
+        else {
+            SATAble2D::Polygon(Polygon::new(projected_points))
         }
     }
 }
@@ -149,8 +169,20 @@ impl Line3D {
         }
     }
 
-    pub fn project_satable_object(&self, obj: &dyn SATAble2D) -> LineSegment3D {
-        let points = obj.get_vertices();
+    pub fn project_satable_object(&self, obj: &SATAble2D) -> LineSegment3D {
+        let points: Vec<Vector3f64>;
+        match obj {
+            SATAble2D::LineSegment3D(line_segment) => {
+                points = vec![line_segment.point1, line_segment.point2];
+            },
+            SATAble2D::Polygon(polygon) => {
+                points = polygon.points.clone();
+            },
+            SATAble2D::Circle(circle) => {
+                let distance = self.v.normalized() * circle.radius;
+                return LineSegment3D::new(self.p0 + distance, self.p0 - distance);
+            },
+        }
 
         let line_dir = self.v.normalized();
         let mut t_min = f64::INFINITY;

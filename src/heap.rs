@@ -1,6 +1,6 @@
 use crate::float_precision::*;
 use crate::hashable::*;
-use crate::math_util::*;
+use crate::math::*;
 use std::collections::HashSet;
 
 /**

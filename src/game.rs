@@ -1,8 +1,12 @@
 use crate::physics::*;
+use crate::render::*;
 use crate::player::*;
 use crate::world_gen::*;
 use crate::float_precision::*;
 use raylib::prelude::*;
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug)]
 enum CollisionObject {
@@ -17,11 +21,13 @@ pub struct Game {
     dynamic_objects: Vec<DynamicBody>,
     static_objects: Vec<StaticBody>,
 
-    cursor_shown: bool,
+    in_menu: bool,
     in_debug_mode: bool,
 
     raylib_handle: RaylibHandle,
     raylib_thread: RaylibThread,
+
+    seed: u32,
 }
 
 impl Game {
@@ -42,53 +48,62 @@ impl Game {
             player,
             dynamic_objects,
             static_objects,
-            cursor_shown: false,
+            in_menu: false,
             in_debug_mode: false,
             raylib_handle: rl,
             raylib_thread: thread,
+            seed: 0,
         };
 
         game.raylib_handle.hide_cursor();
         game.raylib_handle.disable_cursor();
+
+        game.seed = game.generate_world();
 
         game
     }
 
     // Perhaps this could change in the future, but the game loop loops forever and never returns
     pub fn game_loop(&mut self) {
-        self.generate_world();
-        while !self.raylib_handle.window_should_close() {
+        loop {
+            if self.raylib_handle.window_should_close() && ! self.raylib_handle.is_key_pressed(KeyboardKey::KEY_ESCAPE) {
+                break;
+            }
+
             // Calculate delta time
             let delta_time = self.raylib_handle.get_frame_time();
 
             if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_ENTER) {
                 self.raylib_handle.toggle_fullscreen();
             }
-            if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_TAB) {
-                if self.cursor_shown {
+            if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_ESCAPE) {
+                self.in_menu = !self.in_menu;
+                if self.in_menu {
+                    self.raylib_handle.show_cursor();
+                    self.raylib_handle.enable_cursor();
+                } else {
                     self.raylib_handle.hide_cursor();
                     self.raylib_handle.disable_cursor();
-                } else {
-                    self.raylib_handle.show_cursor();
                 }
-                self.cursor_shown = !self.cursor_shown;
             }
             if self.raylib_handle.is_key_pressed(KeyboardKey::KEY_ZERO) {
                 self.in_debug_mode = !self.in_debug_mode;
             }
 
-            // Do user input and movement
-            self.player.update(&self.raylib_handle, delta_time as f64);
+            if !self.in_menu {
+                // Do user input and movement
+                self.player.update(&self.raylib_handle, delta_time as f64);
 
-            let collisions: Vec<(CollisionObject, Vector3f64)> =
-                self.find_colliding_objects();
-            if !collisions.is_empty() {
-                self.run_collisions(collisions);
+                let collisions: Vec<(CollisionObject, Vector3f64)> =
+                    self.find_colliding_objects();
+                if !collisions.is_empty() {
+                    self.run_collisions(collisions);
+                }
             }
 
             // Begin rendering
             let mut draw_handle = self.raylib_handle.begin_drawing(&self.raylib_thread);
-
+            
             draw_handle.clear_background(Color::RAYWHITE);
 
             // This covers everything that is rendered in three dimensions
@@ -96,22 +111,27 @@ impl Game {
                 let mut draw_handle_3d = draw_handle.begin_mode3D(self.player.camera);
 
                 for object in &self.static_objects {
-                    object.get_mesh().render(&mut draw_handle_3d, self.in_debug_mode);
+                    object.get_mesh().render(&mut draw_handle_3d);
                 }
 
                 for object in &self.dynamic_objects {
-                    object.get_mesh().render(&mut draw_handle_3d, self.in_debug_mode);
+                    object.get_mesh().render(&mut draw_handle_3d);
                 }
 
                 match self.player.camera_type {
                     CameraType::FirstPerson => {}
                     CameraType::ThirdPerson(_) => {
-                        self.player.dynamic_body.get_mesh().render(&mut draw_handle_3d, self.in_debug_mode);
+                        self.player.dynamic_body.get_mesh().render(&mut draw_handle_3d);
                     }
                 }
             }
 
-            draw_handle.draw_fps(10, 10);
+            if self.in_debug_mode {
+                draw_handle.draw_fps(10, 10);
+                draw_handle.draw_text(&format!("x: {:.2} y: {:.2} z: {:.2}", self.player.dynamic_body.get_center().x, self.player.dynamic_body.get_center().y, self.player.dynamic_body.get_center().z), 10, 30, 20, Color::BLACK);
+                draw_handle.draw_text(&format!("Seed: {}", self.seed), 10, 50, 20, Color::BLACK);
+            }
+
         }
     }
 
@@ -169,15 +189,17 @@ impl Game {
         }
     }
 
-    fn generate_world(&mut self) {
-        let height_map = generate_height_map();
+    fn generate_world(&mut self) -> u32 {
+        let (height_map, seed) = generate_height_map();
         let world_mesh = create_mesh_from_height_map(height_map, Vector2f64::new(0.0, 0.0), 4.0, 4.0);
 
         // Add the mesh to the world so it will be rendered
         for mesh in world_mesh {
             let center = mesh.borrow().get_center();
-            let static_body = StaticBody::new(center, mesh);
+            let static_body = StaticBody::new(center, Rc::new(RefCell::new(MeshShape::GroundMesh(mesh.borrow().clone()))));
             self.add_static_object(static_body);
         }
+
+        seed
     }
 }

@@ -1,7 +1,8 @@
 use crate::hashable::*;
-use crate::math_util::Plane;
+use crate::math::Plane;
 use crate::render::*;
 use crate::float_precision::*;
+use crate::shapes::Polygon;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::cell::{RefCell, Ref};
@@ -10,7 +11,7 @@ use std::rc::Rc;
 pub trait Physical: Debug {
     fn get_center(&self) -> Vector3f64;
     fn get_bounding_circle_radius(&self) -> f64;
-    fn get_mesh(&self) -> Ref<dyn MeshShape>;
+    fn get_mesh(&self) -> Ref<MeshShape>;
 }
 
 pub trait Dynamic {
@@ -23,13 +24,13 @@ pub trait Static {}
 #[derive(Debug)]
 pub struct StaticBody {
     pub pos: Vector3f64,
-    pub mesh: Rc<RefCell<dyn MeshShape>>,
+    pub mesh: Rc<RefCell<MeshShape>>,
 }
 
 impl Static for StaticBody {}
 
 impl Physical for StaticBody {
-    fn get_mesh(&self) -> Ref<dyn MeshShape> {
+    fn get_mesh(&self) -> Ref<MeshShape> {
         return self.mesh.borrow();
     }
     fn get_bounding_circle_radius(&self) -> f64 {
@@ -41,7 +42,7 @@ impl Physical for StaticBody {
 }
 
 impl StaticBody {
-    pub fn new(pos: Vector3f64, mesh: Rc<RefCell<dyn MeshShape>>) -> Self {
+    pub fn new(pos: Vector3f64, mesh: Rc<RefCell<MeshShape>>) -> Self {
         Self {
             pos,
             mesh,
@@ -53,7 +54,7 @@ impl StaticBody {
 #[derive(Debug)]
 pub struct DynamicBody {
     pub pos: Vector3f64,
-    pub mesh: Rc<RefCell<dyn MeshShape>>,
+    pub mesh: Rc<RefCell<MeshShape>>,
 }
 
 impl Dynamic for DynamicBody {
@@ -72,13 +73,13 @@ impl Physical for DynamicBody {
         return self.mesh.borrow().get_bounding_circle_radius();
     }
 
-    fn get_mesh(&self) -> Ref<dyn MeshShape> {
+    fn get_mesh(&self) -> Ref<MeshShape> {
         return self.mesh.borrow();
     }
 }
 
 impl DynamicBody {
-    pub fn new(pos: Vector3f64, mesh: Rc<RefCell<dyn MeshShape>>) -> Self {
+    pub fn new(pos: Vector3f64, mesh: Rc<RefCell<MeshShape>>) -> Self {
         DynamicBody {
             pos,
             mesh,
@@ -94,8 +95,8 @@ impl DynamicBody {
         // We need to find the angle when we look at there is a minimum overlap
         fn align_direction_vec(
             direction_vec: &mut Vector3f64,
-            mesh1: Ref<dyn MeshShape>,
-            mesh2: Ref<dyn MeshShape>,
+            mesh1: Ref<MeshShape>,
+            mesh2: Ref<MeshShape>,
         ) {
             // The direction vector is going to either be correct or flipped, so walk in each direction, and the one that gets further from the other mesh's center is the right direction
             let pos1 = mesh2.get_center() + *direction_vec;
@@ -119,8 +120,8 @@ impl DynamicBody {
 
         for plane in planes {
             let proj_plane = Plane::from(plane);
-            let proj1 = proj_plane.project_mesh(self.get_mesh());
-            let proj2 = proj_plane.project_mesh(other.get_mesh());
+            let proj1 = proj_plane.project_mesh(self.get_mesh().to_owned());
+            let proj2 = proj_plane.project_mesh(other.get_mesh().to_owned());
 
             let collision = collision_detection_2d(proj1, proj2, proj_plane.n);
             match collision {
