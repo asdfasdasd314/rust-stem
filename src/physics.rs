@@ -1,8 +1,11 @@
 use crate::hashable::*;
+use crate::math::Line3D;
 use crate::math::Plane;
 use crate::render::*;
 use crate::float_precision::*;
+use crate::shapes::LineSegment3D;
 use crate::shapes::Polygon;
+use crate::shapes::Sphere;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::cell::{RefCell, Ref};
@@ -104,6 +107,60 @@ impl DynamicBody {
 
             if (pos1 - mesh1.get_center()).length() > (pos2 - mesh1.get_center()).length() {
                 *direction_vec *= -1.0;
+            }
+        }
+
+        // Consider the case of spheres etc
+        let mesh1 = self.get_mesh().to_owned();
+        let mesh2 = other.get_mesh().to_owned();
+
+        let mut sphere_mesh: Option<Sphere> = None;
+        let mut other_mesh: Option<MeshShape> = None;
+
+        match (mesh1, mesh2) {
+            (MeshShape::Sphere(sphere1), MeshShape::Sphere(sphere2)) => {
+                let distance = (sphere1.center - sphere2.center).length();
+                let radius_sum = sphere1.radius + sphere2.radius;
+                if distance > radius_sum {
+                    return None;
+                }
+
+                let direction = (sphere2.center - sphere1.center).normalized();
+                return Some(direction * (radius_sum - distance));
+            }
+            (MeshShape::Sphere(sphere_obj), other_obj) => {
+                sphere_mesh = Some(sphere_obj);
+                other_mesh = Some(other_obj);
+            }
+            (other_obj, MeshShape::Sphere(sphere_obj)) => {
+                sphere_mesh = Some(sphere_obj);
+                other_mesh = Some(other_obj);
+            }
+            _ => {}
+        }
+
+        if let Some(sphere) = sphere_mesh {
+            if let Some(other) = other_mesh {
+                let faces = other.get_polygons();
+
+                let mut direction = Vector3f64::new(0.0, 0.0, 0.0);
+                let mut min_distance = f64::MAX;
+                for face in faces {
+                    let displacement = face.minimum_displacement(sphere.center);
+                    if displacement.length() < min_distance {
+                        min_distance = displacement.length();
+                        if displacement.length() > 0.0 {
+                            direction = displacement.normalized();
+                        }
+                    }
+                }
+
+                if min_distance > sphere.radius {
+                    return None;
+                }
+
+                align_direction_vec(&mut direction, self.get_mesh(), RefCell::new(other).borrow());
+                return Some(direction * (sphere.radius - min_distance));
             }
         }
 

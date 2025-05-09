@@ -48,6 +48,12 @@ pub struct Plane {
 }
 
 impl Plane {
+    pub fn from_three_points(p0: Vector3f64, p1: Vector3f64, p2: Vector3f64) -> Self {
+        let n = (p1 - p0).cross(p2 - p0).normalized();
+        let d = p0.x * n.x + p0.y * n.y + p0.z * n.z;
+        Self { n, d, p0 }
+    }
+
     // A plane can be uniquely defined with a normal vector and a point
     pub fn from_point_and_normal(p0: Vector3f64, n: Vector3f64) -> Self {
         let mut normal = n.normalized();
@@ -69,8 +75,8 @@ impl Plane {
         
         let proj = self.n * d_vec.dot(self.n) / (self.n.dot(self.n));
 
-        *point - proj
-    }
+        *point - 
+    proj}
 
     pub fn project_mesh(&self, mesh: MeshShape) -> SATAble2D {
         // Project each individual point onto the plane
@@ -151,38 +157,23 @@ impl Line3D {
      * Finds the value of t such the equations for the point of the line are satasfied for the given point
      */
     pub fn find_t_from_point(&self, point: Vector3f64) -> f64 {
-        let vec2 = point - self.p0;
-        let abs_t = vec2.length() / self.v.length();
-
-        // Now determine the direction
-        let p1 = self.p0 + vec2;
-        let p2 = self.p0 - vec2;
-
-        // Determine which point is closer to the point in the direction of the terminal point of the root vec
-        let terminal_point = self.p0 + self.v;
-
-        if (terminal_point - p1).length() > (terminal_point - p2).length() {
-            // If we get closer when we subtract the vector, then we are going away, so t is negative
-            abs_t * -1.0
-        } else {
-            abs_t
-        }
+        let vec_to_point = point - self.p0;
+        vec_to_point.dot(self.v) / self.v.dot(self.v)
     }
 
     pub fn project_satable_object(&self, obj: &SATAble2D) -> LineSegment3D {
-        let points: Vec<Vector3f64>;
-        match obj {
+        let points: Vec<Vector3f64> = match obj {
             SATAble2D::LineSegment3D(line_segment) => {
-                points = vec![line_segment.point1, line_segment.point2];
+                vec![line_segment.point1, line_segment.point2]
             },
             SATAble2D::Polygon(polygon) => {
-                points = polygon.points.clone();
+                polygon.points.clone()
             },
             SATAble2D::Circle(circle) => {
                 let distance = self.v.normalized() * circle.radius;
                 return LineSegment3D::new(self.p0 + distance, self.p0 - distance);
             },
-        }
+        };
 
         let line_dir = self.v.normalized();
         let mut t_min = f64::INFINITY;
@@ -205,6 +196,12 @@ impl Line3D {
         let end_point = self.p0 + line_dir * t_max;
 
         LineSegment3D::new(start_point, end_point)
+    }
+
+    pub fn project_point(&self, point: &Vector3f64) -> Vector3f64 {
+        let vec_to_point = *point - self.p0;
+        let t = vec_to_point.dot(self.v) / self.v.dot(self.v);
+        self.p0 + self.v * t
     }
 }
 
@@ -379,5 +376,75 @@ impl TwoDimensionalPointProjector {
             .iter()
             .map(|(_, index)| original_points[*index])
             .collect()
+    }
+}
+
+impl LineSegment3D {
+    pub fn minimum_displacement(&self, point: Vector3f64) -> Vector3f64 {
+        let v1 = self.point2 - self.point1;
+
+        let line = Line3D::from_point_and_parallel_vec(self.point1, v1);
+        let projection = line.project_point(&point);
+        let t = line.find_t_from_point(projection);
+        if t < 0.0 {
+            self.point1 - point
+        } else if t > 1.0 {
+            self.point2 - point
+        } else {
+            projection - point
+        }
+    }
+}
+
+impl Polygon {
+    pub fn minimum_displacement(&self, point: Vector3f64) -> Vector3f64 {
+        let plane = self.convert_to_plane();
+        let projected_point = plane.project_point(&point);
+        let projection_displacement = projected_point - point;
+
+        if self.contains_point(&projected_point) {
+            return projection_displacement;
+        }
+
+        let mut min_displacement = Vector3f64::new(f64::MAX, f64::MAX, f64::MAX);
+        for edge in self.get_edges() {
+            let displacement = edge.minimum_displacement(projected_point);
+            if displacement.length() < min_displacement.length() {
+                min_displacement = displacement;
+            }
+        }
+
+        projection_displacement + min_displacement
+    }
+
+    fn contains_point(&self, point: &Vector3f64) -> bool {
+        let mut intersects1 = false;
+        let mut intersects2 = false;
+
+        let direction1 = self.get_edges()[0].point1 - *point;
+        let direction2 = direction1 * -1.0;
+
+        for edge in self.get_edges() {
+            let vec1 = edge.point1 - *point;
+            let vec2 = edge.point2 - *point;
+
+            let cos1 = vec1.dot(vec2) / (vec1.length() * vec2.length());
+
+            let cos2 = direction1.dot(vec2) / (direction1.length() * vec2.length());
+            let cos3 = direction1.dot(vec1) / (direction1.length() * vec1.length());
+
+            let cos4 = direction2.dot(vec2) / (direction2.length() * vec2.length());
+            let cos5 = direction2.dot(vec1) / (direction2.length() * vec1.length());
+
+            if cos1 <= cos2 && cos1 <= cos3 && !intersects1 {
+                intersects1 = true;
+            }
+
+            if cos1 <= cos4 && cos1 <= cos5 && !intersects2 {
+                intersects2 = true;
+            }
+        }
+
+        intersects1 && intersects2
     }
 }

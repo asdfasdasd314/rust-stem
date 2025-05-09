@@ -36,13 +36,93 @@ impl SATAble2D {
             },
         }
     }
+
+    pub fn get_center(&self) -> Vector3f64 {
+        match self {
+            SATAble2D::LineSegment3D(line_segment) => {
+                (line_segment.point1 + line_segment.point2) / 2.0
+            },
+            SATAble2D::Polygon(polygon) => {
+                let mut center = Vector3f64::new(0.0, 0.0, 0.0,);
+                for point in polygon.points.iter() {
+                    center += *point;
+                }
+                center / polygon.points.len() as f64
+            },
+            SATAble2D::Circle(circle) => {
+                circle.center
+            },
+        }
+    }
+
+    pub fn get_sides(&self) -> Vec<LineSegment3D> {
+        match self {
+            SATAble2D::LineSegment3D(line_segment) => {
+                vec![LineSegment3D::new(line_segment.point1, line_segment.point2)]
+            },
+            SATAble2D::Polygon(polygon) => {
+                polygon.get_edges().iter().map(|edge| {
+                    LineSegment3D::new(edge.point1, edge.point2)
+                }).collect()
+            },
+            SATAble2D::Circle(_) => {
+                vec![]
+            },
+        }
+    }
 }
 
 pub fn collision_detection_2d(obj1: SATAble2D, obj2: SATAble2D, coplanar_normal: Vector3f64) -> Option<(f64, Vector3f64)> {
     let obj1_axes = obj1.compute_orthogonal_axes(&coplanar_normal);
     let obj2_axes = obj2.compute_orthogonal_axes(&coplanar_normal);
     let projection_axes: Vec<Line3D> = [obj1_axes.as_slice(), obj2_axes.as_slice()].concat();
-    
+
+    let mut circle: Option<&Circle> = None;
+    let mut other: Option<&SATAble2D> = None;
+
+    match (&obj1, &obj2) {
+        (SATAble2D::Circle(circle1), SATAble2D::Circle(circle2)) => {
+            let distance = (circle1.center - circle2.center).length();
+            if distance > circle1.radius + circle2.radius {
+                return None;
+            }
+
+            let overlap = circle1.radius + circle2.radius - distance;
+            let direction = (circle2.center - circle1.center).normalized();
+            return Some((overlap, direction));
+        }
+        (SATAble2D::Circle(circle_obj), other_obj) => {
+            circle = Some(circle_obj);
+            other = Some(other_obj);
+        }
+        (other_obj, SATAble2D::Circle(circle_obj)) => {
+            circle = Some(circle_obj);
+            other = Some(other_obj);
+        }
+        _ => {}
+    }
+
+    if let Some(circle) = circle {
+        if let Some(other) = other {
+            let sides = other.get_sides();
+            let mut min_displacement = Vector3f64::new(f64::MAX, f64::MAX, f64::MAX);
+            for side in sides {
+                let displacement = side.minimum_displacement(circle.center);
+                if displacement.length() < min_displacement.length() {
+                    min_displacement = displacement;
+                }
+            }
+
+            let overlap = circle.radius - min_displacement.length();
+            if overlap < 0.0 {
+                return None;
+            }
+
+            let direction = min_displacement.normalized() * -1.0;
+            return Some((overlap, direction));
+        }
+    }
+
     let mut res: (f64, Vector3f64) = (f64::MAX, Vector3f64::new(0.0, 0.0, 0.0,));
     for axis in &projection_axes {
         let line_segment1: LineSegment3D = axis.project_satable_object(&obj1);
@@ -71,26 +151,6 @@ pub fn collision_detection_2d(obj1: SATAble2D, obj2: SATAble2D, coplanar_normal:
         }
     }
 
-    if projection_axes.is_empty() {
-        // They are both circles
-        match (obj1, obj2) {
-            (SATAble2D::Circle(circle1), SATAble2D::Circle(circle2)) => {
-                let distance = (circle1.center - circle2.center).length();
-                if distance > circle1.radius + circle2.radius {
-                if distance > circle1.radius + circle2.radius {
-                    return None;
-                }
-
-                let overlap = circle1.radius + circle2.radius - distance;
-                    let direction = (circle2.center - circle1.center).normalized();
-                    return Some((overlap, direction));
-                }
-            }
-            _ => {
-                return None;
-            }
-        }
-    }
     Some(res)
 }
 
