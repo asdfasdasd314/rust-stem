@@ -22,7 +22,7 @@ mod world_gen;
 mod shapes;
 
 fn main() {
-    let player_mesh = MeshShape::Sphere(Sphere::new(Vector3f64::new(0.0, 0.0, 0.0), 1.0));
+    let player_mesh = MeshShape::RectangularPrism(RectangularPrism::new(Vector3f64::new(0.0, 0.0, 0.0), 1.0, 1.0, 1.0));
     let rb = DynamicBody::new(Vector3f64::new(0.0, 0.0, 0.0), Rc::new(RefCell::new(player_mesh)));
     let player = Player::new(rb.pos, 10.0, 0.1, CameraType::ThirdPerson(5.0), rb);
     let mut game = Game::new(player, vec![], vec![], (640, 480), "Game".to_string());

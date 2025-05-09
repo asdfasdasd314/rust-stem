@@ -97,11 +97,7 @@ impl Game {
                 let collisions: Vec<(CollisionObject, Vector3f64)> =
                     self.find_colliding_objects();
                 if !collisions.is_empty() {
-                    println!("Colliding");
                     self.run_collisions(collisions);
-                }
-                else {
-                    println!("Not colliding");
                 }
             }
 

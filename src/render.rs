@@ -247,7 +247,7 @@ impl MeshShape {
         match self {
             MeshShape::RectangularPrism(prism) => {
                 draw_handle.draw_cube(
-                    Vector3::from(prism.root),
+                    Vector3::from(self.get_center()),
                     prism.width as f32,
                     prism.height as f32,
                     prism.length as f32,
