@@ -75,34 +75,36 @@ impl Plane {
         
         let proj = self.n * d_vec.dot(self.n) / (self.n.dot(self.n));
 
-        *point - 
-    proj}
+        *point - proj
+    }
 
     pub fn project_mesh(&self, mesh: MeshShape) -> SATAble2D {
         // Project each individual point onto the plane
-        let projected_points: Vec<Vector3f64>;
-        match mesh {
+        let projected_points: Vec<Vector3f64> = match mesh {
             MeshShape::RectangularPrism(prism) => {
-                projected_points = prism
+                prism
                     .get_vertices()
                     .iter()
                     .map(|point| {
                         self.project_point(point)
                     })
-                    .collect();
+                    .collect()
             },
             MeshShape::GroundMesh(ground_mesh) => {
-                projected_points = ground_mesh
+                ground_mesh
                     .get_vertices()
                     .iter()
                     .map(|point| {
                         self.project_point(point)
                     })
-                    .collect();
+                    .collect()
             },
             MeshShape::Sphere(sphere) => {
                 return SATAble2D::Circle(Circle::new(sphere.center, sphere.radius, self.n));
             },
+            _ => {
+                panic!("Don't want to implement this");
+            }
         };
 
         // Convert the points to 2D

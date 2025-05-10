@@ -1,4 +1,6 @@
-use crate::{float_precision::Vector3f64, math::{Line3D, Plane}};
+use raylib::{prelude::{Color, Vector3}, prelude::{RaylibDraw3D, RaylibDrawHandle, RaylibMode3D}};
+
+use crate::{float_precision::{Vector2f64, Vector3f64}, math::{f64_max, Line3D, Plane}, world_gen::GroundMesh};
 
 #[derive(Debug, Clone)]
 pub struct LineSegment3D {
@@ -197,5 +199,162 @@ impl RectangularPrism {
                 self.root.z + self.length,
             ),
         ]
+    }
+
+    pub fn get_polygons(&self) -> Vec<Polygon> {
+        let vertices = self.get_vertices();
+
+        // Define all of the polygons
+        vec![
+            Polygon::new(vec![vertices[0], vertices[1], vertices[3], vertices[2]]),
+            Polygon::new(vec![vertices[4], vertices[5], vertices[7], vertices[6]]),
+            Polygon::new(vec![vertices[0], vertices[1], vertices[5], vertices[4]]),
+            Polygon::new(vec![vertices[2], vertices[3], vertices[7], vertices[6]]),
+            Polygon::new(vec![vertices[0], vertices[2], vertices[6], vertices[4]]),
+            Polygon::new(vec![vertices[1], vertices[3], vertices[7], vertices[5]]),
+        ]
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Capsule {
+    pub segment: LineSegment3D,
+    pub radius: f64,
+}
+
+impl Capsule {
+    pub fn new(segment: LineSegment3D, radius: f64) -> Self {
+        Self { segment, radius }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MeshShape {
+    RectangularPrism(RectangularPrism),
+    GroundMesh(GroundMesh),
+    Sphere(Sphere),
+    Capsule(Capsule),
+}
+
+impl MeshShape {
+    pub fn move_by(&mut self, change: Vector3f64) {
+        match self {
+            MeshShape::RectangularPrism(prism) => {
+                prism.root += change;
+            },
+            MeshShape::Sphere(sphere) => {
+                sphere.center += change;
+            },
+            MeshShape::GroundMesh(ground_mesh) => {
+                ground_mesh.bottom_left_pos += Vector2f64::new(change.x, change.z);
+                ground_mesh.h1 += change.y;
+                ground_mesh.h2 += change.y;
+                ground_mesh.h3 += change.y;
+                ground_mesh.h4 += change.y;
+            },
+            MeshShape::Capsule(capsule) => {
+                capsule.segment.point1 += change;
+                capsule.segment.point2 += change;
+            },
+        }
+    }
+
+    pub fn get_bounding_circle_radius(&self) -> f64 {
+        match self {
+            MeshShape::RectangularPrism(prism) => {
+                prism.bounding_circle_radius
+            },
+            MeshShape::Sphere(sphere) => {
+                sphere.radius
+            },
+            MeshShape::GroundMesh(ground_mesh) => {
+                let average_height = (ground_mesh.h1 + ground_mesh.h2 + ground_mesh.h3 + ground_mesh.h4) / 4.0;
+                let max_height = f64_max(&[ground_mesh.h1, ground_mesh.h2, ground_mesh.h3, ground_mesh.h4]);
+                (ground_mesh.dx * ground_mesh.dx + ground_mesh.dz * ground_mesh.dz + max_height - average_height).sqrt()
+            },
+            MeshShape::Capsule(capsule) => {
+                capsule.radius + capsule.segment.length() / 2.0
+            },
+        }
+    }
+
+    pub fn get_center(&self) -> Vector3f64 {
+        match self {
+            MeshShape::RectangularPrism(prism) => {
+                Vector3f64::new(
+                    prism.root.x + prism.width / 2.0,
+                    prism.root.y + prism.height / 2.0,
+                    prism.root.z + prism.length / 2.0,
+                )
+            },
+            MeshShape::Sphere(sphere) => {
+                sphere.center
+            },
+            MeshShape::GroundMesh(ground_mesh) => {
+                ground_mesh.get_center()
+            },
+            MeshShape::Capsule(capsule) => {
+                capsule.segment.point1 + (capsule.segment.point2 - capsule.segment.point1) / 2.0
+            }
+        }
+    }
+
+    pub fn render(&self, draw_handle: &mut RaylibMode3D<'_, RaylibDrawHandle<'_>>) {
+        match self {
+            MeshShape::RectangularPrism(prism) => {
+                draw_handle.draw_cube(
+                    Vector3::from(self.get_center()),
+                    prism.width as f32,
+                    prism.height as f32,
+                    prism.length as f32,
+                    Color::RED,
+                );
+            },
+            MeshShape::Sphere(sphere) => {
+                draw_handle.draw_sphere(
+                    Vector3::from(sphere.center),
+                    sphere.radius as f32,
+                    Color::RED,
+                );
+            },
+            MeshShape::GroundMesh(ground_mesh) => {
+                let vertices = ground_mesh.get_vertices();
+
+                for i in 1..vertices.len() - 1 {
+                    draw_handle.draw_triangle3D(
+                        Vector3::from(vertices[0]),
+                        Vector3::from(vertices[i]),
+                        Vector3::from(vertices[i + 1]),
+                        ground_mesh.color,
+                    );
+                    draw_handle.draw_triangle3D(
+                        Vector3::from(vertices[0]),
+                        Vector3::from(vertices[i + 1]),
+                        Vector3::from(vertices[i]),
+                        ground_mesh.color,
+                    );
+                }
+            },
+            MeshShape::Capsule(capsule) => {
+                draw_handle.draw_cylinder(
+                    Vector3::from(capsule.segment.point1),
+                    capsule.radius as f32,
+                    capsule.radius as f32,
+                    capsule.segment.length() as f32,
+                    16,
+                    Color::RED,
+                );
+                draw_handle.draw_sphere(
+                    Vector3::from(capsule.segment.point1),
+                    capsule.radius as f32,
+                    Color::RED,
+                );
+                draw_handle.draw_sphere(
+                    Vector3::from(capsule.segment.point2),
+                    capsule.radius as f32,
+                    Color::RED,
+                );
+            },
+        }
     }
 }
